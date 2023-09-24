@@ -20,7 +20,7 @@ func (this_ *Server) Startup(onDown func()) (err error) {
 
 	routerGroup := router.Group(this_.config.Context)
 
-	this_.bindStatics(routerGroup)
+	this_.bindRouterGroup(routerGroup)
 
 	var ins []net.Interface
 	ins, err = net.Interfaces()

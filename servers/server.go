@@ -22,6 +22,9 @@ type Server struct {
 	basePath  string
 
 	webListener net.Listener
+
+	registerHttpFilters             []*RegisterHttpFilter
+	registerHttpHandlerInterceptors []*RegisterHttpHandlerInterceptor
 }
 
 func (this_ *Server) init() (err error) {
