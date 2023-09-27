@@ -30,7 +30,7 @@ func (this_ *Server) bindRouterGroup(routerGroup *gin.RouterGroup) {
 		}
 		if mapperMatch.Matched {
 			httpMapper := mapperMatch.Node.GetExtend().(HttpMapper)
-			httpMapper()
+			httpMapper(nil)
 		}
 	})
 	util.Logger.Info("bind router group end")
