@@ -10,7 +10,10 @@ import (
 
 func New(config Config) (ser *Server, err error) {
 	ser = &Server{
-		config: &config,
+		config:                     &config,
+		filterPathTree:             NewPathTree(""),
+		mapperPathTree:             NewPathTree(""),
+		handlerInterceptorPathTree: NewPathTree(""),
 	}
 	err = ser.init()
 	return
@@ -23,8 +26,9 @@ type Server struct {
 
 	webListener net.Listener
 
-	registerHttpFilters             []*RegisterHttpFilter
-	registerHttpHandlerInterceptors []*RegisterHttpHandlerInterceptor
+	filterPathTree             *PathTree
+	mapperPathTree             *PathTree
+	handlerInterceptorPathTree *PathTree
 }
 
 func (this_ *Server) init() (err error) {

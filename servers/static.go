@@ -11,6 +11,32 @@ import (
 	"web-server-ui/static"
 )
 
+func (this_ *Server) bindStaticsMapper(routerGroup *gin.RouterGroup) {
+	util.Logger.Info("bind statics start")
+
+	this_.bindStaticMapper(routerGroup, "", "index.html")
+
+	if this_.config.DistDir != "" {
+		staticNames, _ := util.LoadDirFilenames(this_.config.DistDir)
+		for _, name := range staticNames {
+			this_.bindStaticMapper(routerGroup, name, name)
+		}
+	} else {
+		staticNames := static.GetStaticNames()
+		for _, name := range staticNames {
+			this_.bindStaticMapper(routerGroup, name, name)
+		}
+	}
+	util.Logger.Info("bind statics end")
+}
+
+func (this_ *Server) bindStaticMapper(routerGroup *gin.RouterGroup, path, name string) {
+	util.Logger.Info("bind static", zap.Any("path", path), zap.Any("name", name))
+	routerGroup.GET(path, func(c *gin.Context) {
+		this_.toStaticByName(c, name)
+	})
+}
+
 func (this_ *Server) bindStatics(routerGroup *gin.RouterGroup) {
 	util.Logger.Info("bind statics start")
 
