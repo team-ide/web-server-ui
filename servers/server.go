@@ -71,6 +71,14 @@ func (this_ *Server) init() (err error) {
 	this_.serverUrl += this_.config.Context
 	this_.basePath = this_.config.Context
 
+	if this_.config.Options.SuccessCode == "" {
+		this_.config.Options.SuccessCode = "0"
+	}
+
+	if this_.config.Options.ErrorCode == "" {
+		this_.config.Options.ErrorCode = "-1"
+	}
+
 	util.Logger.Info("server info", zap.Any("config", this_.config))
 	util.Logger.Info("server info", zap.Any("serverUrl", this_.serverUrl))
 	util.Logger.Info("server info", zap.Any("basePath", this_.basePath))

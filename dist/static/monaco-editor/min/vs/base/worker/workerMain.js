@@ -18,5 +18,3 @@
 ${h}
 })`}}):void 0;function o(){try{return(N?self.eval(N.createScript("","true")):new Function("true")).call(self),!0}catch{return!1}}function w(){return new Promise((S,t)=>{if(typeof self.define=="function"&&self.define.amd)return S();const d=e+"vs/loader.js";if(!(/^((http:)|(https:)|(file:))/.test(d)&&d.substring(0,self.origin.length)!==self.origin)&&o()){fetch(d).then(v=>{if(v.status!==200)throw new Error(v.statusText);return v.text()}).then(v=>{v=`${v}
 //# sourceURL=${d}`,(N?self.eval(N.createScript("",v)):new Function(v)).call(self),S()}).then(void 0,t);return}N?importScripts(N.createScriptURL(d)):importScripts(d),S()})}const g=function(S){w().then(()=>{require.config({baseUrl:e,catchError:!0,trustedTypesPolicy:N,amdModulesPattern:/^vs\//}),require([S],function(t){setTimeout(function(){let d=t.create((h,v)=>{self.postMessage(h,v)},null);for(self.onmessage=h=>d.onmessage(h.data,h.ports);m.length>0;)self.onmessage(m.shift())},0)})})};let c=!0,m=[];self.onmessage=S=>{if(!c){m.push(S);return}c=!1,g(S.data)}}()}).call(this);
-
-//# sourceMappingURL=../../../../min-maps/vs/base/worker/workerMain.js.map

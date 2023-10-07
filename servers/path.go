@@ -44,8 +44,6 @@ type PathTreeNode struct {
 	keyCache     map[string]*PathTreeNode // 通过key缓存
 	keyCacheLock sync.Mutex
 
-	matchCaches []*PathMatch
-
 	parent *PathTreeNode
 
 	PathParamRules   []*PathParamRule `json:"pathParamRules,omitempty"`
@@ -67,7 +65,6 @@ type PathParamRule struct {
 }
 
 type PathMatchResult struct {
-	Matched    bool          `json:"matched"`
 	Params     []*PathParam  `json:"params"`
 	MatchRules []string      `json:"matchRules"`
 	Node       *PathTreeNode `json:"node"`
@@ -94,18 +91,21 @@ func (this_ *PathTree) AddPath(path string, order int, extend interface{}) (err 
 	return
 }
 
-func (this_ *PathTree) Match(path string) (res *PathMatchResult, err error) {
-	find := this_.getByPath(path)
-	if find != nil {
-		res = &PathMatchResult{
-			Matched: true,
-			Node:    find,
-		}
-		//fmt.Println("match from path cache")
+func (this_ *PathTree) Match(path string) (matchList []*PathMatchResult, err error) {
+	//find := this_.getByPath(path)
+	//if find != nil {
+	//	matchList = append(matchList, &PathMatchResult{
+	//		Node: find,
+	//	})
+	//	//fmt.Println("match from path cache")
+	//	//return
+	//}
+
+	matchList_, err := this_.Root.match(strings.Split(path, ""))
+	if err != nil {
 		return
 	}
-
-	res, err = this_.Root.match(strings.Split(path, ""))
+	matchList = append(matchList, matchList_...)
 
 	return
 }
@@ -297,7 +297,7 @@ func (this_ *PathTreeNode) GetExtend() interface{} {
 	return this_.extend
 }
 
-func (this_ *PathTreeNode) match(strList []string) (res *PathMatchResult, err error) {
+func (this_ *PathTreeNode) match(strList []string) (matchList []*PathMatchResult, err error) {
 	var strLen = len(strList)
 	if strLen == 0 {
 		err = errors.New("path cannot be empty")
@@ -318,23 +318,19 @@ func (this_ *PathTreeNode) match(strList []string) (res *PathMatchResult, err er
 		str += strList[strIndex]
 	}
 	var nextStrList = strList[strIndex:]
+	var matchList_ []*PathMatchResult
 	for _, c := range this_.Children {
-		res, err = childMatch(c, str, nextStrList)
+		matchList_, err = childMatch(c, str, nextStrList)
 		if err != nil {
 			return
 		}
-		if res.Matched {
-			return
-		}
-	}
-	if res == nil || !res.Matched {
-		res = &PathMatchResult{}
+		matchList = append(matchList, matchList_...)
 	}
 	return
 }
 
-func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (res *PathMatchResult, err error) {
-	res = &PathMatchResult{}
+func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (matchList []*PathMatchResult, err error) {
+	var params []*PathParam
 	if child.matchRegexp == nil {
 		if child.MatchRule != matchStr {
 			return
@@ -377,7 +373,7 @@ func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (res
 						Name:  pathParamRule.Value,
 						Value: v,
 					}
-					res.Params = append(res.Params, param)
+					params = append(params, param)
 				} else if pathParamRule.Value != v {
 					return
 				}
@@ -389,22 +385,23 @@ func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (res
 			return
 		}
 	}
-	res.MatchRules = append(res.MatchRules, child.MatchRule)
 	if len(nextStrList) > 0 {
-		var childRes *PathMatchResult
-		childRes, err = child.match(nextStrList)
+		var matchList_ []*PathMatchResult
+		matchList_, err = child.match(nextStrList)
 		if err != nil {
 			return
 		}
-		res.Matched = childRes.Matched
-		if childRes.Matched {
-			res.Params = append(res.Params, childRes.Params...)
-			res.MatchRules = append(res.MatchRules, childRes.MatchRules...)
-			res.Node = childRes.Node
+		for _, match := range matchList_ {
+			match.Params = append(params, match.Params...)
+			match.MatchRules = append([]string{child.MatchRule}, match.MatchRules...)
 		}
+		matchList = append(matchList, matchList_...)
 	} else {
-		res.Matched = true
-		res.Node = child
+		matchList = append(matchList, &PathMatchResult{
+			MatchRules: []string{child.MatchRule},
+			Node:       child,
+			Params:     params,
+		})
 	}
 	return
 }

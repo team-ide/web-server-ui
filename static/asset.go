@@ -32,6 +32,10 @@ func GetStaticNames() (names []string) {
 	return
 }
 
+func FindStatic(name string) (bs []byte, find bool) {
+	bs, find = staticBytesCache[name]
+	return
+}
 func SetAsset(distDir string, saveDir string, savePrefix string) (err error) {
 	// 删除历史静态资源
 	savedFileMap, err := util.LoadDirFiles(saveDir)

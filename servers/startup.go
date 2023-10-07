@@ -20,7 +20,10 @@ func (this_ *Server) Startup(onDown func()) (err error) {
 
 	routerGroup := router.Group(this_.config.Context)
 
-	this_.bindRouterGroup(routerGroup)
+	err = this_.bindRouterGroup(routerGroup)
+	if err != nil {
+		return
+	}
 
 	var ins []net.Interface
 	ins, err = net.Interfaces()
