@@ -14,6 +14,7 @@ func New(config Config) (ser *Server, err error) {
 		filterPathTree:             NewPathTree(""),
 		mapperPathTree:             NewPathTree(""),
 		handlerInterceptorPathTree: NewPathTree(""),
+		staticPathCache:            make(map[string]*Static),
 	}
 	err = ser.init()
 	return
@@ -29,6 +30,8 @@ type Server struct {
 	filterPathTree             *PathTree
 	mapperPathTree             *PathTree
 	handlerInterceptorPathTree *PathTree
+
+	staticPathCache map[string]*Static
 }
 
 func (this_ *Server) init() (err error) {
