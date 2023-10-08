@@ -9,14 +9,23 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
 type HttpRequestContext struct {
 	Path      string    `json:"path"`
 	StartTime time.Time `json:"startTime"`
-	c         *gin.Context
+	EndTime   time.Time `json:"endTime"`
+
+	DoFilterStartTime time.Time `json:"doFilterStartTime"`
+	DoFilterEndTime   time.Time `json:"doFilterEndTime"`
+
+	DoInterceptorStartTime time.Time `json:"doInterceptorStartTime"`
+	DoInterceptorEndTime   time.Time `json:"doInterceptorEndTime"`
+
+	DoMapperStartTime time.Time `json:"doMapperStartTime"`
+	DoMapperEndTime   time.Time `json:"doMapperEndTime"`
+	c                 *gin.Context
 }
 
 func (this_ *HttpRequestContext) Write(bs []byte) (int, error) {
@@ -53,6 +62,7 @@ func (this_ *Server) doRequest(c *gin.Context) {
 		if x := recover(); x != nil {
 			err = errors.New(fmt.Sprintf("%s", x))
 		}
+		requestContext.EndTime = time.Now()
 
 		if err != nil {
 			this_.doError(requestContext, err)
@@ -66,6 +76,11 @@ func (this_ *Server) doRequest(c *gin.Context) {
 }
 
 func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
+	defer func() {
+		requestContext.DoFilterEndTime = time.Now()
+	}()
+	requestContext.DoFilterStartTime = time.Now()
+
 	var chain = &HttpFilterChainImpl{
 		server: this_,
 	}
@@ -93,16 +108,20 @@ func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
 }
 
 func (this_ *Server) doInterceptor(requestContext *HttpRequestContext) (err error) {
+	defer func() {
+		requestContext.DoInterceptorEndTime = time.Now()
+	}()
+	requestContext.DoInterceptorStartTime = time.Now()
 
 	// 处理 HttpHandlerInterceptor
-	var interceptors []HttpHandlerInterceptor
+	var interceptors []HttpInterceptor
 
-	matchList, err := this_.handlerInterceptorPathTree.Match(requestContext.Path)
+	matchList, err := this_.interceptorPathTree.Match(requestContext.Path)
 	if err != nil {
 		return
 	}
 	for _, one := range matchList {
-		interceptors = append(interceptors, one.Node.GetExtend().(HttpHandlerInterceptor))
+		interceptors = append(interceptors, one.Node.GetExtend().(HttpInterceptor))
 	}
 	for _, interceptor := range interceptors {
 		if !interceptor.PreHandle(requestContext) {
@@ -115,6 +134,10 @@ func (this_ *Server) doInterceptor(requestContext *HttpRequestContext) (err erro
 }
 
 func (this_ *Server) doMapper(requestContext *HttpRequestContext) (err error) {
+	defer func() {
+		requestContext.DoMapperEndTime = time.Now()
+	}()
+	requestContext.DoMapperStartTime = time.Now()
 
 	// 首先判断 是否是静态资源路径 如果是 则直接返回
 	isStatic, err := this_.doStatic(requestContext)
@@ -159,11 +182,11 @@ func (this_ *Server) doResult(requestContext *HttpRequestContext, result interfa
 		return
 	}
 	switch t := result.(type) {
-	case ResultPage:
-		err = this_.doResultPage(requestContext, &t)
+	case ResultStatic:
+		err = this_.doResultStatic(requestContext, &t)
 		break
-	case *ResultPage:
-		err = this_.doResultPage(requestContext, t)
+	case *ResultStatic:
+		err = this_.doResultStatic(requestContext, t)
 		break
 	case ResultData:
 		err = this_.doResultData(requestContext, &t)
@@ -177,25 +200,16 @@ func (this_ *Server) doResult(requestContext *HttpRequestContext, result interfa
 		})
 		break
 	}
+	requestContext.Status(http.StatusOK)
 	return
 }
 
-func (this_ *Server) doResultPage(requestContext *HttpRequestContext, page *ResultPage) (err error) {
+func (this_ *Server) doResultStatic(requestContext *HttpRequestContext, s *ResultStatic) (err error) {
 
-	util.Logger.Info("return page result", zap.Any("page", page.Page))
-	if strings.HasSuffix(page.Page, ".html") {
-		var bs []byte
-		bs, err = this_.ReadStatic(page.Page)
-		if err != nil {
-			return
-		}
-		this_.writeHtml(requestContext.GetWriter(), bs)
-
-	} else {
-		err = this_.CopyStatic(page.Page, requestContext.GetWriter())
+	err = this_.responseStatic(requestContext, s.Name)
+	if err != nil {
+		return
 	}
-
-	requestContext.Status(http.StatusOK)
 
 	return
 }
@@ -240,8 +254,8 @@ func (this_ *Server) doError(requestContext *HttpRequestContext, err error) {
 	return
 }
 
-type ResultPage struct {
-	Page string `json:"page"`
+type ResultStatic struct {
+	Name string `json:"name"`
 }
 
 type ResultData struct {
@@ -261,6 +275,36 @@ func (this_ *CodeError) Error() string {
 		err = this_.Err.Error()
 	}
 	return err
+}
+
+// NewResultStatic 返回静态资源
+func NewResultStatic(name string) *ResultStatic {
+	return &ResultStatic{
+		Name: name,
+	}
+}
+
+// NewResultError 返回错误信息
+func NewResultError(code string, err error) *ResultData {
+	return &ResultData{
+		Code: code,
+		Msg:  err.Error(),
+	}
+}
+
+// NewResultData 返回结果
+func NewResultData(data interface{}) *ResultData {
+	return &ResultData{
+		Data: data,
+	}
+}
+
+// NewCodeError 返回带错误码的异常
+func NewCodeError(code string, err error) error {
+	return &CodeError{
+		Code: code,
+		Err:  err,
+	}
 }
 
 var (

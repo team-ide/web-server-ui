@@ -1,6 +1,6 @@
 package servers
 
-func (this_ *Server) RegisterHttpFilter(path string, order int, filter HttpFilter) (err error) {
+func (this_ *Server) RegisterFilter(path string, order int, filter HttpFilter) (err error) {
 
 	err = this_.filterPathTree.AddPath(path, order, filter)
 	if err != nil {
@@ -20,9 +20,9 @@ func (this_ *Server) RegisterMapper(path string, order int, mapper HttpMapper) (
 	return
 }
 
-func (this_ *Server) RegisterHttpHandlerInterceptor(path string, order int, interceptor HttpHandlerInterceptor) (err error) {
+func (this_ *Server) RegisterInterceptor(path string, order int, interceptor HttpInterceptor) (err error) {
 
-	err = this_.handlerInterceptorPathTree.AddPath(path, order, interceptor)
+	err = this_.interceptorPathTree.AddPath(path, order, interceptor)
 	if err != nil {
 		return
 	}

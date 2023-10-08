@@ -23,7 +23,7 @@ func (this_ *Server) bindRouterGroup(routerGroup *gin.RouterGroup) (err error) {
 
 type HttpMapper func(c *HttpRequestContext) (res interface{}, err error)
 
-type HttpHandlerInterceptor interface {
+type HttpInterceptor interface {
 	PreHandle(requestContext *HttpRequestContext) bool
 	PostHandle(requestContext *HttpRequestContext)
 	AfterCompletion(requestContext *HttpRequestContext)

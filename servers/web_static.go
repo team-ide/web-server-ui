@@ -22,17 +22,23 @@ func (this_ *Server) doStatic(requestContext *HttpRequestContext) (ok bool, err 
 		return
 	}
 
-	util.Logger.Info("do static", zap.Any("name", find.Name))
-	this_.setHeaderByStaticName(find.Name, requestContext)
-	if strings.HasSuffix(find.Name, ".html") {
+	err = this_.responseStatic(requestContext, find.Name)
+	return
+}
+
+func (this_ *Server) responseStatic(requestContext *HttpRequestContext, name string) (err error) {
+
+	util.Logger.Info("response static", zap.Any("name", name))
+	this_.setHeaderByStaticName(name, requestContext)
+	if strings.HasSuffix(name, ".html") {
 		var bs []byte
-		bs, err = this_.ReadStatic(find.Name)
+		bs, err = this_.ReadStatic(name)
 		if err != nil {
 			return
 		}
 		this_.writeHtml(requestContext.GetWriter(), bs)
 	} else {
-		err = this_.CopyStatic(find.Name, requestContext.GetWriter())
+		err = this_.CopyStatic(name, requestContext.GetWriter())
 	}
 
 	requestContext.Status(http.StatusOK)
