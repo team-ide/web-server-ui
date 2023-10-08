@@ -55,8 +55,13 @@ type PathTreeNode struct {
 	Order       int             `json:"order,omitempty"`
 	Children    []*PathTreeNode `json:"children,omitempty"`
 
+	extends []*PathTreeNodeExtend
+	tree    *PathTree
+}
+
+type PathTreeNodeExtend struct {
+	Order  int `json:"order,omitempty"`
 	extend interface{}
-	tree   *PathTree
 }
 
 type PathParamRule struct {
@@ -85,6 +90,7 @@ var (
 // 参数正则：/x/{name:a-Z0-9}/xx
 // {name} 默认参数转为正则：(.*) 匹配任意字符
 // 匹配任意路径：/x/x/{:**}，其中 ** 将匹配任意路径包含`/`字符也能匹配
+// 顺序是 order 从小到大 执行
 func (this_ *PathTree) AddPath(path string, order int, extend interface{}) (err error) {
 	err = this_.Root.add(strings.Split(path, ""), order, extend)
 
@@ -248,7 +254,6 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 		child.PathParamRules = pathParamRules
 		child.PathParamRuleLen = len(pathParamRules)
 		child.HasMatchAll = hasMatchAll
-		child.extend = extend
 		child.Order = order
 	}
 	var nextStrList = strList[strIndex:]
@@ -260,10 +265,18 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 			return
 		}
 	} else {
-		if !isNew {
-			err = errors.New("path [" + child.Path + "] already exists")
-			return
-		}
+		child.extends = append(child.extends, &PathTreeNodeExtend{
+			extend: extend,
+			Order:  order,
+		})
+		// Order 正序
+		sort.Slice(child.extends, func(i, j int) bool {
+			return child.extends[i].Order < this_.Children[j].Order
+		})
+		//if !isNew {
+		//	err = errors.New("path [" + child.Path + "] already exists")
+		//	return
+		//}
 	}
 
 	if isNew {
@@ -293,7 +306,11 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 	return
 }
 
-func (this_ *PathTreeNode) GetExtend() interface{} {
+func (this_ *PathTreeNode) GetExtends() []*PathTreeNodeExtend {
+	return this_.extends
+}
+
+func (this_ *PathTreeNodeExtend) GetExtend() interface{} {
 	return this_.extend
 }
 

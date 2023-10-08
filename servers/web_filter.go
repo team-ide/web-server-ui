@@ -17,6 +17,7 @@ type HttpFilterChainImpl struct {
 	nextFilterIndex int
 	filters         []HttpFilter
 	filtersSize     int
+	pathParamsList  [][]*PathParam
 	server          *Server
 }
 
@@ -31,7 +32,9 @@ func (this_ *HttpFilterChainImpl) DoFilter(requestContext *HttpRequestContext) (
 		}
 	}()
 	nextFilter := this_.filters[this_.nextFilterIndex]
+	pathParams := this_.pathParamsList[this_.nextFilterIndex]
 	this_.nextFilterIndex++
+	requestContext.PathParams = pathParams
 	err = nextFilter.DoFilter(requestContext, this_)
 	if err != nil {
 		return

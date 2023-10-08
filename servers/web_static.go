@@ -2,13 +2,13 @@ package servers
 
 import (
 	"github.com/team-ide/go-tool/util"
+	"github.com/team-ide/web-server-ui/static"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
-	"web-server-ui/static"
 )
 
 type Static struct {

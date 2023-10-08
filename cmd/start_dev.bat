@@ -1,5 +1,5 @@
 @echo off
 
-cd ../
+cd ../demo/
 
 go run .

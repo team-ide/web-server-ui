@@ -13,19 +13,21 @@ import (
 )
 
 type HttpRequestContext struct {
-	Path      string    `json:"path"`
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
+	Path      string    `json:"path,omitempty"`
+	StartTime time.Time `json:"startTime,omitempty"`
+	EndTime   time.Time `json:"endTime,omitempty"`
 
-	DoFilterStartTime time.Time `json:"doFilterStartTime"`
-	DoFilterEndTime   time.Time `json:"doFilterEndTime"`
+	DoFilterStartTime time.Time `json:"doFilterStartTime,omitempty"`
+	DoFilterEndTime   time.Time `json:"doFilterEndTime,omitempty"`
 
-	DoInterceptorStartTime time.Time `json:"doInterceptorStartTime"`
-	DoInterceptorEndTime   time.Time `json:"doInterceptorEndTime"`
+	DoInterceptorStartTime time.Time `json:"doInterceptorStartTime,omitempty"`
+	DoInterceptorEndTime   time.Time `json:"doInterceptorEndTime,omitempty"`
 
-	DoMapperStartTime time.Time `json:"doMapperStartTime"`
-	DoMapperEndTime   time.Time `json:"doMapperEndTime"`
+	DoMapperStartTime time.Time `json:"doMapperStartTime,omitempty"`
+	DoMapperEndTime   time.Time `json:"doMapperEndTime,omitempty"`
 	c                 *gin.Context
+
+	PathParams []*PathParam `json:"pathParams,omitempty"`
 }
 
 func (this_ *HttpRequestContext) Write(bs []byte) (int, error) {
@@ -78,6 +80,7 @@ func (this_ *Server) doRequest(c *gin.Context) {
 func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
 	defer func() {
 		requestContext.DoFilterEndTime = time.Now()
+		requestContext.PathParams = []*PathParam{}
 	}()
 	requestContext.DoFilterStartTime = time.Now()
 
@@ -89,13 +92,23 @@ func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
 	if err != nil {
 		return
 	}
+	//util.Logger.Info("do filter match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
+
+	var pathParamsList [][]*PathParam
 
 	for _, one := range matchList {
-		filters = append(filters, one.Node.GetExtend().(HttpFilter))
+
+		es := one.Node.GetExtends()
+		requestContext.PathParams = one.Params
+		for _, e := range es {
+			filters = append(filters, e.GetExtend().(HttpFilter))
+			pathParamsList = append(pathParamsList, one.Params)
+		}
 	}
 
 	// 处理 HttpFilter
 	chain.filters = filters
+	chain.pathParamsList = pathParamsList
 	chain.filtersSize = len(filters)
 
 	err = chain.DoFilter(requestContext)
@@ -110,22 +123,26 @@ func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
 func (this_ *Server) doInterceptor(requestContext *HttpRequestContext) (err error) {
 	defer func() {
 		requestContext.DoInterceptorEndTime = time.Now()
+		requestContext.PathParams = []*PathParam{}
 	}()
 	requestContext.DoInterceptorStartTime = time.Now()
 
 	// 处理 HttpHandlerInterceptor
-	var interceptors []HttpInterceptor
 
 	matchList, err := this_.interceptorPathTree.Match(requestContext.Path)
 	if err != nil {
 		return
 	}
+	//util.Logger.Info("do interceptor match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
 	for _, one := range matchList {
-		interceptors = append(interceptors, one.Node.GetExtend().(HttpInterceptor))
-	}
-	for _, interceptor := range interceptors {
-		if !interceptor.PreHandle(requestContext) {
-			return
+
+		es := one.Node.GetExtends()
+		requestContext.PathParams = one.Params
+		for _, e := range es {
+			interceptor := e.GetExtend().(HttpInterceptor)
+			if !interceptor.PreHandle(requestContext) {
+				return
+			}
 		}
 	}
 
@@ -136,6 +153,7 @@ func (this_ *Server) doInterceptor(requestContext *HttpRequestContext) (err erro
 func (this_ *Server) doMapper(requestContext *HttpRequestContext) (err error) {
 	defer func() {
 		requestContext.DoMapperEndTime = time.Now()
+		requestContext.PathParams = []*PathParam{}
 	}()
 	requestContext.DoMapperStartTime = time.Now()
 
@@ -149,29 +167,32 @@ func (this_ *Server) doMapper(requestContext *HttpRequestContext) (err error) {
 	}
 
 	// 处理 HttpMapper
-	var mappers []HttpMapper
 
 	matchList, err := this_.mapperPathTree.Match(requestContext.Path)
 	if err != nil {
 		return
 	}
-	util.Logger.Info("do mapper match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
-	for _, one := range matchList {
-		mappers = append(mappers, one.Node.GetExtend().(HttpMapper))
-	}
-	if len(mappers) == 0 {
+
+	if len(matchList) == 0 {
 		this_.doNotFound(requestContext)
 		return
 	}
+
+	//util.Logger.Info("do mapper match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
 	var res interface{}
-	for _, mapper := range mappers {
-		res, err = mapper(requestContext)
-		if err != nil {
-			return
-		}
-		err = this_.doResult(requestContext, res)
-		if err != nil {
-			return
+	for _, one := range matchList {
+		es := one.Node.GetExtends()
+		requestContext.PathParams = one.Params
+		for _, e := range es {
+			mapper := e.GetExtend().(HttpMapper)
+			res, err = mapper(requestContext)
+			if err != nil {
+				return
+			}
+			err = this_.doResult(requestContext, res)
+			if err != nil {
+				return
+			}
 		}
 	}
 	return
