@@ -3,7 +3,6 @@ package servers
 import (
 	"errors"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -17,9 +16,9 @@ func NewPathTree(rootPath string) (pathTree *PathTree) {
 	if rootPath == "" {
 		rootPath = "/"
 	}
-	root.Path = rootPath
-	root.Key = rootPath[1:]
-	pathTree.Root = root
+	root.path = rootPath
+	root.key = rootPath[1:]
+	pathTree.root = root
 	return
 }
 
@@ -33,40 +32,39 @@ func newPathTreeNode(tree *PathTree, parent *PathTreeNode) (node *PathTreeNode) 
 }
 
 type PathTree struct {
-	Root          *PathTreeNode            `json:"root"`
+	root          *PathTreeNode
 	pathCache     map[string]*PathTreeNode // 通过 path 缓存
 	pathCacheLock sync.Mutex
 }
 
 type PathTreeNode struct {
-	Key          string                   `json:"key,omitempty"`
-	Path         string                   `json:"path,omitempty"`
+	key          string
+	path         string
 	keyCache     map[string]*PathTreeNode // 通过key缓存
 	keyCacheLock sync.Mutex
 
 	parent *PathTreeNode
 
-	PathParamRules   []*PathParamRule `json:"pathParamRules,omitempty"`
-	PathParamRuleLen int              `json:"pathParamRuleLen,omitempty"`
+	pathParamRules   []*PathParamRule
+	pathParamRuleLen int
 	matchRegexp      *regexp.Regexp
-	MatchRule        string `json:"matchRule,omitempty"`
+	matchRule        string
 
-	HasMatchAll bool            `json:"hasMatchAll,omitempty"`
-	Order       int             `json:"order,omitempty"`
-	Children    []*PathTreeNode `json:"children,omitempty"`
+	hasMatchAll bool
+	children    []*PathTreeNode
 
 	extends []*PathTreeNodeExtend
 	tree    *PathTree
 }
 
 type PathTreeNodeExtend struct {
-	Order  int `json:"order,omitempty"`
+	order  int
 	extend interface{}
 }
 
 type PathParamRule struct {
-	Value  string `json:"value"`
-	IsName bool   `json:"isName"`
+	value  string
+	isName bool
 }
 
 type PathMatchResult struct {
@@ -92,7 +90,7 @@ var (
 // 匹配任意路径：/x/x/{:**}，其中 ** 将匹配任意路径包含`/`字符也能匹配
 // 顺序是 order 从小到大 执行
 func (this_ *PathTree) AddPath(path string, order int, extend interface{}) (err error) {
-	err = this_.Root.add(strings.Split(path, ""), order, extend)
+	err = this_.root.add(strings.Split(path, ""), order, extend)
 
 	return
 }
@@ -107,7 +105,7 @@ func (this_ *PathTree) Match(path string) (matchList []*PathMatchResult, err err
 	//	//return
 	//}
 
-	matchList_, err := this_.Root.match(strings.Split(path, ""))
+	matchList_, err := this_.root.match(strings.Split(path, ""))
 	if err != nil {
 		return
 	}
@@ -150,7 +148,7 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 
 		if curChar == "}" {
 			if !isPathParamStart && !isRuleStart {
-				err = errors.New("path [" + this_.Path + strings.Join(strList, "") + "] analysis error, not found `{`")
+				err = errors.New("path [" + this_.path + strings.Join(strList, "") + "] analysis error, not found `{`")
 				return
 			}
 			isPathParamStart = false
@@ -159,13 +157,13 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 			if lastParamOther != "" {
 				matchRule += "(" + lastParamOther + ")"
 				pathParamRules = append(pathParamRules, &PathParamRule{
-					Value: lastParamOther,
+					value: lastParamOther,
 				})
 			}
 
 			pathParamRules = append(pathParamRules, &PathParamRule{
-				Value:  lastParamName,
-				IsName: true,
+				value:  lastParamName,
+				isName: true,
 			})
 			lastParamName = ""
 			if lastParamRule == "" {
@@ -195,14 +193,14 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 		}
 	}
 	if isPathParamStart || isRuleStart {
-		err = errors.New("path [" + this_.Path + strings.Join(strList, "") + "] analysis error, not found `}`")
+		err = errors.New("path [" + this_.path + strings.Join(strList, "") + "] analysis error, not found `}`")
 		return
 	}
 	if matchRule != "" {
 		if lastParamOther != "" {
 			matchRule += "(" + lastParamOther + ")"
 			pathParamRules = append(pathParamRules, &PathParamRule{
-				Value: lastParamOther,
+				value: lastParamOther,
 			})
 		}
 	}
@@ -211,11 +209,11 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 	find := strings.Count(matchRule, "**")
 	if find > 0 {
 		if find > 1 {
-			err = errors.New("path [" + this_.Path + strings.Join(strList, "") + "] analysis error, has more `**`")
+			err = errors.New("path [" + this_.path + strings.Join(strList, "") + "] analysis error, has more `**`")
 			return
 		}
 		if !strings.HasSuffix(matchRule, "(**)") {
-			err = errors.New("path [" + this_.Path + strings.Join(strList, "") + "] analysis error, must match end `(**)`")
+			err = errors.New("path [" + this_.path + strings.Join(strList, "") + "] analysis error, must match end `(**)`")
 			return
 		}
 		hasMatchAll = true
@@ -234,27 +232,26 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 	var isNew = child == nil
 	if child == nil {
 		child = newPathTreeNode(this_.tree, this_)
-		child.Key = key
+		child.key = key
 		if this_.parent == nil {
-			child.Path = "/" + str
+			child.path = "/" + str
 		} else {
-			child.Path = this_.Path + "/" + str
+			child.path = this_.path + "/" + str
 		}
 		if matchRule != "" {
 			matchRule = "^" + matchRule + "$"
-			child.MatchRule = matchRule
+			child.matchRule = matchRule
 			child.matchRegexp, err = regexp.Compile(matchRule)
 			if err != nil {
-				err = errors.New("path [" + child.Path + "] regexp compile error:" + err.Error())
+				err = errors.New("path [" + child.path + "] regexp compile error:" + err.Error())
 				return
 			}
 		} else {
-			child.MatchRule = str
+			child.matchRule = str
 		}
-		child.PathParamRules = pathParamRules
-		child.PathParamRuleLen = len(pathParamRules)
-		child.HasMatchAll = hasMatchAll
-		child.Order = order
+		child.pathParamRules = pathParamRules
+		child.pathParamRuleLen = len(pathParamRules)
+		child.hasMatchAll = hasMatchAll
 	}
 	var nextStrList = strList[strIndex:]
 
@@ -266,12 +263,8 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 		}
 	} else {
 		child.extends = append(child.extends, &PathTreeNodeExtend{
+			order:  order,
 			extend: extend,
-			Order:  order,
-		})
-		// Order 正序
-		sort.Slice(child.extends, func(i, j int) bool {
-			return child.extends[i].Order < this_.Children[j].Order
 		})
 		//if !isNew {
 		//	err = errors.New("path [" + child.Path + "] already exists")
@@ -281,11 +274,6 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 
 	if isNew {
 		this_.addChild(child)
-
-		// Order 正序
-		sort.Slice(this_.Children, func(i, j int) bool {
-			return this_.Children[i].Order < this_.Children[j].Order
-		})
 
 		if isEnd {
 			var hasMatch bool
@@ -298,7 +286,7 @@ func (this_ *PathTreeNode) add(strList []string, order int, extend interface{}) 
 				n = n.parent
 			}
 			if !hasMatch {
-				this_.tree.addPathCache(child.Path, child)
+				this_.tree.addPathCache(child.path, child)
 			}
 		}
 	}
@@ -336,7 +324,7 @@ func (this_ *PathTreeNode) match(strList []string) (matchList []*PathMatchResult
 	}
 	var nextStrList = strList[strIndex:]
 	var matchList_ []*PathMatchResult
-	for _, c := range this_.Children {
+	for _, c := range this_.children {
 		matchList_, err = childMatch(c, str, nextStrList)
 		if err != nil {
 			return
@@ -349,12 +337,12 @@ func (this_ *PathTreeNode) match(strList []string) (matchList []*PathMatchResult
 func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (matchList []*PathMatchResult, err error) {
 	var params []*PathParam
 	if child.matchRegexp == nil {
-		if child.MatchRule != matchStr {
+		if child.matchRule != matchStr {
 			return
 		}
 	} else {
 		var matchRes [][]string
-		if child.HasMatchAll {
+		if child.hasMatchAll {
 			matchStr += strings.Join(nextStrList, "")
 			nextStrList = []string{}
 			matchRes = child.matchRegexp.FindAllStringSubmatch(matchStr, -1)
@@ -378,20 +366,20 @@ func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (mat
 			}
 			vs := finds[1:]
 			vsLen := len(vs)
-			if vsLen != child.PathParamRuleLen {
+			if vsLen != child.pathParamRuleLen {
 				return
 			}
 
 			for i, v := range vs {
-				pathParamRule := child.PathParamRules[i]
+				pathParamRule := child.pathParamRules[i]
 
-				if pathParamRule.IsName {
+				if pathParamRule.isName {
 					param := &PathParam{
-						Name:  pathParamRule.Value,
+						Name:  pathParamRule.value,
 						Value: v,
 					}
 					params = append(params, param)
-				} else if pathParamRule.Value != v {
+				} else if pathParamRule.value != v {
 					return
 				}
 			}
@@ -410,12 +398,12 @@ func childMatch(child *PathTreeNode, matchStr string, nextStrList []string) (mat
 		}
 		for _, match := range matchList_ {
 			match.Params = append(params, match.Params...)
-			match.MatchRules = append([]string{child.MatchRule}, match.MatchRules...)
+			match.MatchRules = append([]string{child.matchRule}, match.MatchRules...)
 		}
 		matchList = append(matchList, matchList_...)
 	} else {
 		matchList = append(matchList, &PathMatchResult{
-			MatchRules: []string{child.MatchRule},
+			MatchRules: []string{child.matchRule},
 			Node:       child,
 			Params:     params,
 		})
@@ -435,8 +423,8 @@ func (this_ *PathTreeNode) addChild(child *PathTreeNode) {
 	this_.keyCacheLock.Lock()
 	defer this_.keyCacheLock.Unlock()
 
-	this_.keyCache[child.Key] = child
-	this_.Children = append(this_.Children, child)
+	this_.keyCache[child.key] = child
+	this_.children = append(this_.children, child)
 	return
 }
 

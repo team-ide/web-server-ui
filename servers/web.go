@@ -9,8 +9,7 @@ func (this_ *Server) bindRouterGroup(routerGroup *gin.RouterGroup) (err error) {
 	util.Logger.Info("bind router group start")
 
 	routerGroup.Any("*_requestFullPath", func(c *gin.Context) {
-		this_.doRequest(c)
-
+		this_.processRequest(c)
 	})
 
 	err = this_.bindStatics()
@@ -19,12 +18,4 @@ func (this_ *Server) bindRouterGroup(routerGroup *gin.RouterGroup) (err error) {
 	}
 	util.Logger.Info("bind router group end")
 	return
-}
-
-type HttpMapper func(c *HttpRequestContext) (res interface{}, err error)
-
-type HttpInterceptor interface {
-	PreHandle(requestContext *HttpRequestContext) bool
-	PostHandle(requestContext *HttpRequestContext)
-	AfterCompletion(requestContext *HttpRequestContext)
 }

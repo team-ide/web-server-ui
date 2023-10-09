@@ -110,11 +110,16 @@ func (this_ *Path2Filter) DoFilter(requestContext *servers.HttpRequestContext, c
 	return
 }
 func bindFilter(server *servers.Server) (err error) {
-	err = server.RegisterFilter("/{xx:**}", 1, &Path1Filter{})
+	reg := servers.NewHttpFilterRegister(&Path1Filter{})
+	reg.AddPathPattern("/{xx:**}").SetOrder(1)
+	err = server.RegisterFilter(*reg)
 	if err != nil {
 		return
 	}
-	err = server.RegisterFilter("/{xx:**}", 2, &Path2Filter{})
+
+	reg = servers.NewHttpFilterRegister(&Path2Filter{})
+	reg.AddPathPattern("/{xx:**}").SetOrder(2)
+	err = server.RegisterFilter(*reg)
 	if err != nil {
 		return
 	}
@@ -122,12 +127,60 @@ func bindFilter(server *servers.Server) (err error) {
 	return
 }
 func bindMapper(server *servers.Server) (err error) {
-	err = server.RegisterMapper("/data", 0, func(c *servers.HttpRequestContext) (res interface{}, err error) {
-		return
-	})
+	//err = server.RegisterMapper("/data", 0, func(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+	//
+	//	res = servers.NewResultData("ok")
+	//	return
+	//})
+	//if err != nil {
+	//	return
+	//}
+
+	err = server.RegisterMapperObj("/user", &UserMapper{})
 	if err != nil {
 		return
 	}
+
+	return
+}
+
+type UserMapper struct {
+	IndexMapper  string `mapper:"/index/{userId}" method:"get"`
+	GetMapper    string `mapper:"/get/{userId}" method:"get"`
+	InsertMapper string `mapper:"/insert" method:"post"`
+}
+
+// Index
+// mapper:/index
+func (this_ *UserMapper) Index(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+
+	return
+}
+
+// Get
+// mapper:/get/{userId}
+func (this_ *UserMapper) Get(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+
+	return
+}
+
+// Insert
+// mapper:/insert
+func (this_ *UserMapper) Insert(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+
+	return
+}
+
+// Update
+// mapper:/update
+func (this_ *UserMapper) Update(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+
+	return
+}
+
+// Delete
+// mapper:/delete
+func (this_ *UserMapper) Delete(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
 
 	return
 }

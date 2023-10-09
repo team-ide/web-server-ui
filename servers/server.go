@@ -10,11 +10,14 @@ import (
 
 func New(config Config) (ser *Server, err error) {
 	ser = &Server{
-		config:              &config,
-		filterPathTree:      NewPathTree(""),
-		mapperPathTree:      NewPathTree(""),
-		interceptorPathTree: NewPathTree(""),
-		staticPathCache:     make(map[string]*Static),
+		config:                     &config,
+		filterPathTree:             NewPathTree(""),
+		filterExcludePathTree:      NewPathTree(""),
+		interceptorPathTree:        NewPathTree(""),
+		interceptorExcludePathTree: NewPathTree(""),
+		mapperPathTree:             NewPathTree(""),
+		mapperExcludePathTree:      NewPathTree(""),
+		staticPathCache:            make(map[string]*Static),
 	}
 	err = ser.init()
 	return
@@ -27,9 +30,12 @@ type Server struct {
 
 	webListener net.Listener
 
-	filterPathTree      *PathTree
-	interceptorPathTree *PathTree
-	mapperPathTree      *PathTree
+	filterPathTree             *PathTree
+	filterExcludePathTree      *PathTree
+	interceptorPathTree        *PathTree
+	interceptorExcludePathTree *PathTree
+	mapperPathTree             *PathTree
+	mapperExcludePathTree      *PathTree
 
 	staticPathCache map[string]*Static
 }

@@ -13,7 +13,7 @@ func TestPath(t *testing.T) {
 	pathTree := NewPathTree("/server")
 
 	addPath := func(path string) {
-		if err = pathTree.AddPath(path, nil); err != nil {
+		if err = pathTree.AddPath(path, 0, nil); err != nil {
 			panic(err)
 		}
 		return
@@ -26,7 +26,7 @@ func TestPath(t *testing.T) {
 	addPath("/x/{name}/xx")
 	addPath("/b/a{:**}")
 
-	bs, err := json.MarshalIndent(pathTree.Root, "", "  ")
+	bs, err := json.MarshalIndent(pathTree.root, "", "  ")
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func TestPath(t *testing.T) {
 
 	// 模拟 匹配
 
-	var matchRes *PathMatchResult
+	var matchRes []*PathMatchResult
 
 	matchPath := func(path string) {
 		if matchRes, err = pathTree.Match(path); err != nil {

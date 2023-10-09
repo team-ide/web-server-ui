@@ -12,7 +12,15 @@ import (
 )
 
 type Static struct {
-	Name string `json:"name"`
+	name string
+}
+
+func (this_ *Static) SetName(name string) *Static {
+	this_.name = name
+	return this_
+}
+func (this_ *Static) GetName() string {
+	return this_.name
 }
 
 func (this_ *Server) doStatic(requestContext *HttpRequestContext) (ok bool, err error) {
@@ -22,7 +30,7 @@ func (this_ *Server) doStatic(requestContext *HttpRequestContext) (ok bool, err 
 		return
 	}
 
-	err = this_.responseStatic(requestContext, find.Name)
+	err = this_.responseStatic(requestContext, find.GetName())
 	return
 }
 
@@ -94,7 +102,7 @@ func (this_ *Server) bindStatics() (err error) {
 
 func (this_ *Server) bindStatic(path, name string) (err error) {
 	s := &Static{
-		Name: name,
+		name: name,
 	}
 	this_.staticPathCache[path] = s
 	return

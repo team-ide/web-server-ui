@@ -50,7 +50,7 @@ func (this_ *HttpRequestContext) GetWriter() io.Writer {
 	return this_.c.Writer
 }
 
-func (this_ *Server) doRequest(c *gin.Context) {
+func (this_ *Server) processRequest(c *gin.Context) {
 	_requestFullPath := c.Params.ByName("_requestFullPath")
 	var err error
 
@@ -72,129 +72,8 @@ func (this_ *Server) doRequest(c *gin.Context) {
 		}
 	}()
 
-	err = this_.doFilter(requestContext)
+	err = this_.processFilters(requestContext)
 
-	return
-}
-
-func (this_ *Server) doFilter(requestContext *HttpRequestContext) (err error) {
-	defer func() {
-		requestContext.DoFilterEndTime = time.Now()
-		requestContext.PathParams = []*PathParam{}
-	}()
-	requestContext.DoFilterStartTime = time.Now()
-
-	var chain = &HttpFilterChainImpl{
-		server: this_,
-	}
-	var filters []HttpFilter
-	matchList, err := this_.filterPathTree.Match(requestContext.Path)
-	if err != nil {
-		return
-	}
-	//util.Logger.Info("do filter match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
-
-	var pathParamsList [][]*PathParam
-
-	for _, one := range matchList {
-
-		es := one.Node.GetExtends()
-		requestContext.PathParams = one.Params
-		for _, e := range es {
-			filters = append(filters, e.GetExtend().(HttpFilter))
-			pathParamsList = append(pathParamsList, one.Params)
-		}
-	}
-
-	// 处理 HttpFilter
-	chain.filters = filters
-	chain.pathParamsList = pathParamsList
-	chain.filtersSize = len(filters)
-
-	err = chain.DoFilter(requestContext)
-
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-func (this_ *Server) doInterceptor(requestContext *HttpRequestContext) (err error) {
-	defer func() {
-		requestContext.DoInterceptorEndTime = time.Now()
-		requestContext.PathParams = []*PathParam{}
-	}()
-	requestContext.DoInterceptorStartTime = time.Now()
-
-	// 处理 HttpHandlerInterceptor
-
-	matchList, err := this_.interceptorPathTree.Match(requestContext.Path)
-	if err != nil {
-		return
-	}
-	//util.Logger.Info("do interceptor match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
-	for _, one := range matchList {
-
-		es := one.Node.GetExtends()
-		requestContext.PathParams = one.Params
-		for _, e := range es {
-			interceptor := e.GetExtend().(HttpInterceptor)
-			if !interceptor.PreHandle(requestContext) {
-				return
-			}
-		}
-	}
-
-	err = this_.doMapper(requestContext)
-	return
-}
-
-func (this_ *Server) doMapper(requestContext *HttpRequestContext) (err error) {
-	defer func() {
-		requestContext.DoMapperEndTime = time.Now()
-		requestContext.PathParams = []*PathParam{}
-	}()
-	requestContext.DoMapperStartTime = time.Now()
-
-	// 首先判断 是否是静态资源路径 如果是 则直接返回
-	isStatic, err := this_.doStatic(requestContext)
-	if err != nil {
-		return
-	}
-	if isStatic {
-		return
-	}
-
-	// 处理 HttpMapper
-
-	matchList, err := this_.mapperPathTree.Match(requestContext.Path)
-	if err != nil {
-		return
-	}
-
-	if len(matchList) == 0 {
-		this_.doNotFound(requestContext)
-		return
-	}
-
-	//util.Logger.Info("do mapper match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
-	var res interface{}
-	for _, one := range matchList {
-		es := one.Node.GetExtends()
-		requestContext.PathParams = one.Params
-		for _, e := range es {
-			mapper := e.GetExtend().(HttpMapper)
-			res, err = mapper(requestContext)
-			if err != nil {
-				return
-			}
-			err = this_.doResult(requestContext, res)
-			if err != nil {
-				return
-			}
-		}
-	}
 	return
 }
 
