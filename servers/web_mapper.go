@@ -6,20 +6,39 @@ import (
 )
 
 type HttpMapperRegister struct {
-	mapper            interface{}
-	mapperMethod      reflect.Method
-	mapperMethodValue reflect.Value
-	HttpBaseRegister
+	mapper      interface{}
+	mapperType  reflect.Type
+	mapperValue reflect.Value
+	inTypes     []reflect.Type
+	outTypes    []reflect.Type
+	*HttpBaseRegister
 }
 
-func (this_ HttpMapperRegister) SetMapper(mapper interface{}) HttpMapperRegister {
+func (this_ *HttpMapperRegister) setMapper(mapper interface{}) *HttpMapperRegister {
 	this_.mapper = mapper
+
+	this_.mapperType = reflect.TypeOf(mapper)
+	this_.mapperValue = reflect.ValueOf(mapper)
+	numIn := this_.mapperType.NumIn()
+	numOut := this_.mapperType.NumOut()
+	for i := 0; i < numIn; i++ {
+		inType := this_.mapperType.In(i)
+		this_.inTypes = append(this_.inTypes, inType)
+	}
+	for i := 0; i < numOut; i++ {
+		outType := this_.mapperType.Out(i)
+		this_.outTypes = append(this_.outTypes, outType)
+	}
+	//fmt.Println("mapper:", mapperType, ",numIn:", numIn, ",numOut:", numOut)
 	return this_
 }
 
-func NewHttpMapperRegister(mapper interface{}, pathPatterns ...string) (register HttpMapperRegister) {
-	register = HttpMapperRegister{}
-	register.SetMapper(mapper).AddPathPattern(pathPatterns...)
+func NewHttpMapperRegister(mapper interface{}, pathPatterns ...string) (register *HttpMapperRegister) {
+	register = &HttpMapperRegister{
+		HttpBaseRegister: &HttpBaseRegister{},
+	}
+	register.setMapper(mapper).AddPathPattern(pathPatterns...)
+
 	return
 }
 
@@ -53,12 +72,13 @@ func (this_ *Server) processMappers(requestContext *HttpRequestContext) (err err
 
 	//util.Logger.Info("do mapper match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
 	var callValues []reflect.Value
+	var inValues []reflect.Value
 	for _, one := range pathMatchExtends {
 		requestContext.PathParams = one.Params
-		mapper := one.Extend.(HttpMapperRegister).mapperMethodValue
+		mapperRegister := one.Extend.(HttpMapperRegister)
 
-		var in []reflect.Value
-		callValues = mapper.Call(in)
+		inValues, err = this_.GetInValues(requestContext, mapperRegister.inTypes)
+		callValues = mapperRegister.mapperValue.Call(inValues)
 
 		var res interface{}
 		for _, callValue := range callValues {
@@ -81,6 +101,30 @@ func (this_ *Server) processMappers(requestContext *HttpRequestContext) (err err
 		if err != nil {
 			return
 		}
+	}
+	return
+}
+
+var (
+	requestContextType1 = reflect.TypeOf(&HttpRequestContext{}).String()
+	requestContextType2 = reflect.TypeOf(HttpRequestContext{}).String()
+)
+
+func (this_ *Server) GetInValues(requestContext *HttpRequestContext, inTypes []reflect.Type) (inValues []reflect.Value, err error) {
+	for _, inType := range inTypes {
+
+		var inValue reflect.Value
+		name := inType.String()
+		switch name {
+		case requestContextType1:
+			inValue = reflect.ValueOf(requestContext)
+			break
+		case requestContextType2:
+			inValue = reflect.ValueOf(*requestContext)
+			break
+		}
+
+		inValues = append(inValues, inValue)
 	}
 	return
 }

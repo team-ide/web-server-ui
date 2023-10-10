@@ -145,9 +145,9 @@ func bindMapper(server *servers.Server) (err error) {
 }
 
 type UserMapper struct {
-	IndexMapper  string `mapper:"/index/{userId}" method:"get"`
-	GetMapper    string `mapper:"/get/{userId}" method:"get"`
-	InsertMapper string `mapper:"/insert" method:"post"`
+	IndexMapper  string `path:"/index/{userId}" method:"get"`
+	GetMapper    string `path:"/get/{userId}" method:"get"`
+	InsertMapper string `path:"/insert" method:"post"`
 }
 
 // Index

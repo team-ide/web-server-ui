@@ -2,8 +2,8 @@ package servers
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
+	"strings"
 )
 
 type HttpBaseRegister struct {
@@ -13,22 +13,22 @@ type HttpBaseRegister struct {
 	order               int
 }
 
-func (this_ HttpBaseRegister) AddPathPattern(pathPatterns ...string) HttpBaseRegister {
+func (this_ *HttpBaseRegister) AddPathPattern(pathPatterns ...string) *HttpBaseRegister {
 	this_.pathPatterns = append(this_.pathPatterns, pathPatterns...)
 	return this_
 }
 
-func (this_ HttpBaseRegister) SetMethod(methods ...string) HttpBaseRegister {
+func (this_ *HttpBaseRegister) SetMethod(methods ...string) *HttpBaseRegister {
 	this_.methods = append(this_.methods, methods...)
 	return this_
 }
 
-func (this_ HttpBaseRegister) ExcludePathPatterns(excludePathPatterns ...string) HttpBaseRegister {
+func (this_ *HttpBaseRegister) ExcludePathPatterns(excludePathPatterns ...string) *HttpBaseRegister {
 	this_.excludePathPatterns = append(this_.excludePathPatterns, excludePathPatterns...)
 	return this_
 }
 
-func (this_ HttpBaseRegister) SetOrder(order int) HttpBaseRegister {
+func (this_ *HttpBaseRegister) SetOrder(order int) *HttpBaseRegister {
 	this_.order = order
 	return this_
 }
@@ -122,19 +122,74 @@ func (this_ *Server) RegisterMapper(register HttpMapperRegister) (err error) {
 func (this_ *Server) RegisterMapperObj(path string, mapperObj interface{}) (err error) {
 	objType := reflect.TypeOf(mapperObj)
 	objValue := reflect.ValueOf(mapperObj)
+	objType_ := objType
+	for objType_.Kind() == reflect.Ptr {
+		objType_ = objType_.Elem()
+	}
 
-	methodNum := objType.NumMethod()
-	for i := 0; i < methodNum; i++ {
-		methodType := objType.Method(i)
-		methodValue := objValue.Method(i)
-		fmt.Println("method:", methodType.Name, ",doc:", methodValue)
-		mapperPath := path + methodType.Name
+	fieldNum := objType_.NumField()
+	var registers []*HttpMapperRegister
+	for i := 0; i < fieldNum; i++ {
+		field := objType_.Field(i)
+		fieldName := field.Name
+		info := GetMapperInfo(field.Tag)
+		methodName := info.Bind
+		if strings.HasSuffix(fieldName, "Mapper") {
+			methodName = strings.TrimRight(fieldName, "Mapper")
+			if methodName == "" {
+				err = errors.New("field [" + fieldName + "] mapper method name is empty")
+				return
+			}
+		}
+		if methodName == "" {
+			continue
+		}
+		if len(info.Path) == 0 {
+			err = errors.New("field [" + fieldName + "] mapper method [" + methodName + "] path empty")
+			return
+		}
+
+		_, find := objType.MethodByName(methodName)
+		if !find {
+			err = errors.New("field [" + fieldName + "] mapper method [" + methodName + "] not found")
+			return
+		}
+		methodValue := objValue.MethodByName(methodName)
 		register := NewHttpMapperRegister(methodValue.Interface())
-		register.AddPathPattern(mapperPath)
-		err = this_.RegisterMapper(register)
+		for _, p := range info.Path {
+			mapperPath := path + p
+			register.AddPathPattern(mapperPath)
+		}
+		register.SetMethod(info.Method...)
+
+		registers = append(registers, register)
+	}
+	for _, one := range registers {
+		err = this_.RegisterMapper(*one)
 		if err != nil {
 			return
 		}
 	}
 	return
+}
+
+type MapperInfo struct {
+	Bind        string   `json:"bind"`
+	Method      []string `json:"method"`
+	Path        []string `json:"path"`
+	ExcludePath []string `json:"excludePath"`
+}
+
+func GetMapperInfo(tag reflect.StructTag) *MapperInfo {
+	info := &MapperInfo{}
+
+	info.Bind = tag.Get("bind")
+	method := tag.Get("method")
+	info.Method = strings.Split(method, ",")
+	path := tag.Get("path")
+	info.Path = strings.Split(path, ",")
+	excludePath := tag.Get("excludePath")
+	info.ExcludePath = strings.Split(excludePath, ",")
+
+	return info
 }

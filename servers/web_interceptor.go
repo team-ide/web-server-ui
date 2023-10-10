@@ -9,16 +9,18 @@ type HttpInterceptor interface {
 
 type HttpInterceptorRegister struct {
 	interceptor HttpInterceptor
-	HttpBaseRegister
+	*HttpBaseRegister
 }
 
-func (this_ HttpInterceptorRegister) SetInterceptor(interceptor HttpInterceptor) HttpInterceptorRegister {
+func (this_ *HttpInterceptorRegister) SetInterceptor(interceptor HttpInterceptor) *HttpInterceptorRegister {
 	this_.interceptor = interceptor
 	return this_
 }
 
-func NewHttpInterceptorRegister(interceptor HttpInterceptor, pathPatterns ...string) (register HttpInterceptorRegister) {
-	register = HttpInterceptorRegister{}
+func NewHttpInterceptorRegister(interceptor HttpInterceptor, pathPatterns ...string) (register *HttpInterceptorRegister) {
+	register = &HttpInterceptorRegister{
+		HttpBaseRegister: &HttpBaseRegister{},
+	}
 	register.SetInterceptor(interceptor).AddPathPattern(pathPatterns...)
 	return
 }

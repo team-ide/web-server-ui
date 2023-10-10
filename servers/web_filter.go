@@ -12,16 +12,18 @@ type HttpFilter interface {
 
 type HttpFilterRegister struct {
 	filter HttpFilter
-	HttpBaseRegister
+	*HttpBaseRegister
 }
 
-func (this_ HttpFilterRegister) SetFilter(filter HttpFilter) HttpFilterRegister {
+func (this_ *HttpFilterRegister) SetFilter(filter HttpFilter) *HttpFilterRegister {
 	this_.filter = filter
 	return this_
 }
 
 func NewHttpFilterRegister(filter HttpFilter, pathPatterns ...string) (register *HttpFilterRegister) {
-	register = &HttpFilterRegister{}
+	register = &HttpFilterRegister{
+		HttpBaseRegister: &HttpBaseRegister{},
+	}
 	register.SetFilter(filter).AddPathPattern(pathPatterns...)
 	return
 }
