@@ -135,7 +135,7 @@ func (this_ *Server) RegisterMapperObj(path string, mapperObj interface{}) (err 
 		info := GetMapperInfo(field.Tag)
 		methodName := info.Bind
 		if strings.HasSuffix(fieldName, "Mapper") {
-			methodName = strings.TrimRight(fieldName, "Mapper")
+			methodName = fieldName[0 : len(fieldName)-6]
 			if methodName == "" {
 				err = errors.New("field [" + fieldName + "] mapper method name is empty")
 				return

@@ -3,6 +3,8 @@ package servers
 import (
 	"errors"
 	"fmt"
+	"github.com/team-ide/go-tool/util"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -53,7 +55,7 @@ func (this_ *HttpFilterChainImpl) DoFilter(requestContext *HttpRequestContext) (
 	nextFilter := this_.filters[this_.nextFilterIndex]
 	pathParams := this_.pathParamsList[this_.nextFilterIndex]
 	this_.nextFilterIndex++
-	requestContext.PathParams = pathParams
+	requestContext.setPathParams(pathParams)
 	err = nextFilter.DoFilter(requestContext, this_)
 	if err != nil {
 		return
@@ -65,7 +67,7 @@ func (this_ *HttpFilterChainImpl) DoFilter(requestContext *HttpRequestContext) (
 func (this_ *Server) processFilters(requestContext *HttpRequestContext) (err error) {
 	defer func() {
 		requestContext.DoFilterEndTime = time.Now()
-		requestContext.PathParams = []*PathParam{}
+		requestContext.setPathParams(nil)
 	}()
 	requestContext.DoFilterStartTime = time.Now()
 
@@ -74,6 +76,7 @@ func (this_ *Server) processFilters(requestContext *HttpRequestContext) (err err
 	}
 	pathMatchExtends, err := this_.matchTree(requestContext.Path, this_.filterPathTree, this_.filterExcludePathTree)
 	if err != nil {
+		util.Logger.Error("process filters match tree error", zap.Any("requestContext", requestContext), zap.Error(err))
 		return
 	}
 	//util.Logger.Info("do filter match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
@@ -92,7 +95,6 @@ func (this_ *Server) processFilters(requestContext *HttpRequestContext) (err err
 	chain.filtersSize = len(filters)
 
 	err = chain.DoFilter(requestContext)
-
 	if err != nil {
 		return
 	}

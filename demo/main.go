@@ -145,9 +145,11 @@ func bindMapper(server *servers.Server) (err error) {
 }
 
 type UserMapper struct {
-	IndexMapper  string `path:"/index/{userId}" method:"get"`
+	IndexMapper  string `path:"/index" method:"get"`
 	GetMapper    string `path:"/get/{userId}" method:"get"`
 	InsertMapper string `path:"/insert" method:"post"`
+	UpdateMapper string `path:"/update/{userId}" method:"post"`
+	DeleteMapper string `path:"/delete/{userId}" method:"post"`
 }
 
 // Index
@@ -159,28 +161,37 @@ func (this_ *UserMapper) Index(requestContext *servers.HttpRequestContext) (res 
 
 // Get
 // mapper:/get/{userId}
-func (this_ *UserMapper) Get(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
-
+func (this_ *UserMapper) Get(userId int64, requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+	fmt.Println("Get userId:", userId)
+	res = userId
 	return
 }
 
 // Insert
 // mapper:/insert
-func (this_ *UserMapper) Insert(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
-
+func (this_ *UserMapper) Insert(requestContext *servers.HttpRequestContext, userInfo *UserInfo) (res interface{}, err error) {
+	fmt.Println("Insert userInfo:", util.GetStringValue(userInfo))
+	res = userInfo
 	return
 }
 
 // Update
-// mapper:/update
-func (this_ *UserMapper) Update(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+// mapper:/update/{userId}
+func (this_ *UserMapper) Update(userId int64, requestContext *servers.HttpRequestContext, userInfo *UserInfo) (res interface{}, err error) {
+	fmt.Println("Update userId:", userId)
+	fmt.Println("Update userInfo:", util.GetStringValue(userInfo))
 
 	return
 }
 
 // Delete
-// mapper:/delete
-func (this_ *UserMapper) Delete(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
-
+// mapper:/delete/{userId}
+func (this_ *UserMapper) Delete(userId int64, requestContext *servers.HttpRequestContext) (res interface{}, err error) {
+	fmt.Println("Delete userId:", userId)
 	return
+}
+
+type UserInfo struct {
+	Name string `json:"name"`
+	Age  uint   `json:"age"`
 }

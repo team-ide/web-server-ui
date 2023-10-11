@@ -1,7 +1,6 @@
 package servers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -27,7 +26,28 @@ type HttpRequestContext struct {
 	DoMapperEndTime   time.Time `json:"doMapperEndTime,omitempty"`
 	c                 *gin.Context
 
-	PathParams []*PathParam `json:"pathParams,omitempty"`
+	pathParams          []*PathParam
+	pathParamMap        map[string]string
+	pathParamValues     []string
+	pathParamValuesSize int
+}
+
+func (this_ *HttpRequestContext) setPathParams(pathParams []*PathParam) *HttpRequestContext {
+	this_.pathParamMap = make(map[string]string)
+	this_.pathParamValues = []string{}
+	this_.pathParamValuesSize = len(pathParams)
+	if this_.pathParamValuesSize == 0 {
+		return this_
+	}
+	for _, one := range pathParams {
+		this_.pathParamValues = append(this_.pathParamValues, one.Value)
+		_, f := this_.pathParamMap[one.Name]
+		if !f {
+			//fmt.Println("path param name:", one.Name, ",value:", one.Value)
+			this_.pathParamMap[one.Name] = one.Value
+		}
+	}
+	return this_
 }
 
 func (this_ *HttpRequestContext) Write(bs []byte) (int, error) {
@@ -63,6 +83,7 @@ func (this_ *Server) processRequest(c *gin.Context) {
 	defer func() {
 		if x := recover(); x != nil {
 			err = errors.New(fmt.Sprintf("%s", x))
+			util.Logger.Error("process request recover error", zap.Any("requestContext", requestContext), zap.Error(err))
 		}
 		requestContext.EndTime = time.Now()
 
@@ -108,6 +129,7 @@ func (this_ *Server) doResultStatic(requestContext *HttpRequestContext, s *Resul
 
 	err = this_.responseStatic(requestContext, s.Name)
 	if err != nil {
+		util.Logger.Error("process mapper do result static error", zap.Any("requestContext", requestContext), zap.Error(err))
 		return
 	}
 
@@ -118,12 +140,7 @@ func (this_ *Server) doResultData(requestContext *HttpRequestContext, data *Resu
 	if data.Code == "" {
 		data.Code = this_.config.Options.SuccessCode
 	}
-	bs, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	_, err = requestContext.Write(bs)
-
+	requestContext.c.JSON(http.StatusOK, data)
 	return
 }
 
@@ -135,8 +152,6 @@ func (this_ *Server) doNotFound(requestContext *HttpRequestContext) {
 }
 
 func (this_ *Server) doError(requestContext *HttpRequestContext, err error) {
-	util.Logger.Error("http request error", zap.Any("requestContext", requestContext), zap.Error(err))
-
 	var code = this_.config.Options.ErrorCode
 
 	var a *CodeError

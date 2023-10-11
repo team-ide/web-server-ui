@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/team-ide/go-tool v0.8.7
+	github.com/team-ide/go-tool v0.8.9
 	go.uber.org/zap v1.26.0
 )
 

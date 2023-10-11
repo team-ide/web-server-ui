@@ -1,6 +1,10 @@
 package servers
 
-import "time"
+import (
+	"github.com/team-ide/go-tool/util"
+	"go.uber.org/zap"
+	"time"
+)
 
 type HttpInterceptor interface {
 	Before(requestContext *HttpRequestContext) bool
@@ -28,7 +32,7 @@ func NewHttpInterceptorRegister(interceptor HttpInterceptor, pathPatterns ...str
 func (this_ *Server) processInterceptors(requestContext *HttpRequestContext) (err error) {
 	defer func() {
 		requestContext.DoInterceptorEndTime = time.Now()
-		requestContext.PathParams = []*PathParam{}
+		requestContext.setPathParams(nil)
 	}()
 	requestContext.DoInterceptorStartTime = time.Now()
 
@@ -36,11 +40,12 @@ func (this_ *Server) processInterceptors(requestContext *HttpRequestContext) (er
 
 	pathMatchExtends, err := this_.matchTree(requestContext.Path, this_.interceptorPathTree, this_.interceptorExcludePathTree)
 	if err != nil {
+		util.Logger.Error("process interceptor match tree error", zap.Any("requestContext", requestContext), zap.Error(err))
 		return
 	}
 	//util.Logger.Info("do interceptor match info", zap.Any("path", requestContext.Path), zap.Any("matchList", matchList))
 	for _, one := range pathMatchExtends {
-		requestContext.PathParams = one.Params
+		requestContext.setPathParams(one.Params)
 		interceptor := one.Extend.(HttpInterceptorRegister).interceptor
 		if !interceptor.Before(requestContext) {
 			return
@@ -49,7 +54,7 @@ func (this_ *Server) processInterceptors(requestContext *HttpRequestContext) (er
 	err = this_.processMappers(requestContext)
 
 	for _, one := range pathMatchExtends {
-		requestContext.PathParams = one.Params
+		requestContext.setPathParams(one.Params)
 		interceptor := one.Extend.(HttpInterceptorRegister).interceptor
 		interceptor.After(requestContext)
 	}
