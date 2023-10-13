@@ -51,7 +51,7 @@ type HtmlLink struct {
 func (this_ *HtmlLink) append(options *BuildOptions) (err error) {
 	app := options.app
 	if this_.href != "" {
-		if err = writeHtml(options, `<link rel="stylesheet" type="text/css" src="`+app.basePath+this_.href+`"></link>`+"\n"); err != nil {
+		if err = writeHtml(options, `<link rel="stylesheet" type="text/css" href="`+app.basePath+this_.href+`"></link>`+"\n"); err != nil {
 			return
 		}
 	}
