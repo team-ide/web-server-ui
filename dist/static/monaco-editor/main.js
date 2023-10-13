@@ -1,4 +1,4 @@
-require.config({ paths: { vs: "static/monaco-editor/min/vs" } });
+require.config({paths: {vs: (window.basePath || '') + "static/monaco-editor/min/vs"}});
 // vs/editor/editor.main.xxx.js  有多个文件需要导入
 require(
     [

@@ -7,22 +7,26 @@ import (
 )
 
 func TestHtml(t *testing.T) {
-	app := &App{
-		Header: &AppHeader{},
-		Body:   &AppBody{},
-		Footer: &AppFooter{},
-	}
+	var err error
+	app := NewApp()
+	app.basePath = "/"
 
-	builder, err := NewHtmlBuilder()
+	page := app.NewPage()
+
+	writer := &strings.Builder{}
+	builder := page.NewPageBuilder(writer)
+
+	err = app.BuildHtml(builder)
 	if err != nil {
 		panic(err)
 	}
-	builder.App = app
-	builder.BasePath = "/"
-	page := &Page{}
+	fmt.Println(writer.String())
 
-	writer := &strings.Builder{}
-	err = builder.OutHtml(writer, page)
+	writer = &strings.Builder{}
+	builder = page.NewPageBuilder(writer)
+	builder.onlyPage = true
+
+	err = app.BuildHtml(builder)
 	if err != nil {
 		panic(err)
 	}

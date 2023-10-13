@@ -3,6 +3,7 @@ package servers
 import (
 	"fmt"
 	"github.com/team-ide/go-tool/util"
+	"github.com/team-ide/web-server-ui/ui"
 	"go.uber.org/zap"
 	"net"
 	"strings"
@@ -18,6 +19,8 @@ func New(config Config) (ser *Server, err error) {
 		mapperPathTree:             NewPathTree(""),
 		mapperExcludePathTree:      NewPathTree(""),
 		staticPathCache:            make(map[string]*Static),
+		staticNameCache:            make(map[string]*Static),
+		pageCache:                  make(map[string]*ui.Page),
 	}
 	err = ser.init()
 	return
@@ -27,6 +30,8 @@ type Server struct {
 	config    *Config
 	serverUrl string
 	basePath  string
+
+	*ui.App
 
 	webListener net.Listener
 
@@ -38,6 +43,9 @@ type Server struct {
 	mapperExcludePathTree      *PathTree
 
 	staticPathCache map[string]*Static
+	staticNameCache map[string]*Static
+
+	pageCache map[string]*ui.Page
 }
 
 func (this_ *Server) init() (err error) {
@@ -87,6 +95,9 @@ func (this_ *Server) init() (err error) {
 	if this_.config.Options.ErrorCode == "" {
 		this_.config.Options.ErrorCode = "-1"
 	}
+
+	this_.App = ui.NewApp()
+	this_.App.SetBasePath(this_.basePath)
 
 	util.Logger.Info("server info", zap.Any("config", this_.config))
 	util.Logger.Info("server info", zap.Any("serverUrl", this_.serverUrl))

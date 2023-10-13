@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/team-ide/go-tool/util"
+	"github.com/team-ide/web-server-ui/ui"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
@@ -109,6 +110,12 @@ func (this_ *Server) doResult(requestContext *HttpRequestContext, result interfa
 	case *ResultStatic:
 		err = this_.doResultStatic(requestContext, t)
 		break
+	case ResultPage:
+		err = this_.doResultPage(requestContext, &t)
+		break
+	case *ResultPage:
+		err = this_.doResultPage(requestContext, t)
+		break
 	case ResultData:
 		err = this_.doResultData(requestContext, &t)
 		break
@@ -127,7 +134,15 @@ func (this_ *Server) doResult(requestContext *HttpRequestContext, result interfa
 
 func (this_ *Server) doResultStatic(requestContext *HttpRequestContext, s *ResultStatic) (err error) {
 
-	err = this_.responseStatic(requestContext, s.Name)
+	st := this_.staticNameCache[s.Name]
+
+	if st == nil {
+		err = errors.New("static [" + s.Name + "] not found")
+		util.Logger.Error("process mapper do result static error", zap.Any("requestContext", requestContext), zap.Error(err))
+		return
+	}
+
+	err = this_.responseStatic(requestContext, st)
 	if err != nil {
 		util.Logger.Error("process mapper do result static error", zap.Any("requestContext", requestContext), zap.Error(err))
 		return
@@ -141,6 +156,15 @@ func (this_ *Server) doResultData(requestContext *HttpRequestContext, data *Resu
 		data.Code = this_.config.Options.SuccessCode
 	}
 	requestContext.c.JSON(http.StatusOK, data)
+	return
+}
+
+func (this_ *Server) doResultPage(requestContext *HttpRequestContext, page *ResultPage) (err error) {
+	requestContext.Header("Content-Type", "text/html;charset=UTF-8")
+	requestContext.Header("Cache-Control", "no-cache")
+
+	options := page.page.NewPageBuilder(requestContext.GetWriter())
+	err = this_.BuildHtml(options)
 	return
 }
 
@@ -179,6 +203,10 @@ type ResultData struct {
 	Data interface{} `json:"data"`
 }
 
+type ResultPage struct {
+	page *ui.Page
+}
+
 type CodeError struct {
 	Code string `json:"code"`
 	Err  error  `json:"err"`
@@ -193,14 +221,14 @@ func (this_ *CodeError) Error() string {
 }
 
 // NewResultStatic 返回静态资源
-func NewResultStatic(name string) *ResultStatic {
+func (this_ *Server) NewResultStatic(name string) *ResultStatic {
 	return &ResultStatic{
 		Name: name,
 	}
 }
 
 // NewResultError 返回错误信息
-func NewResultError(code string, err error) *ResultData {
+func (this_ *Server) NewResultError(code string, err error) *ResultData {
 	return &ResultData{
 		Code: code,
 		Msg:  err.Error(),
@@ -208,14 +236,21 @@ func NewResultError(code string, err error) *ResultData {
 }
 
 // NewResultData 返回结果
-func NewResultData(data interface{}) *ResultData {
+func (this_ *Server) NewResultData(data interface{}) *ResultData {
 	return &ResultData{
 		Data: data,
 	}
 }
 
+// NewResultPage 返回结果
+func (this_ *Server) NewResultPage(page *ui.Page) *ResultPage {
+	return &ResultPage{
+		page: page,
+	}
+}
+
 // NewCodeError 返回带错误码的异常
-func NewCodeError(code string, err error) error {
+func (this_ *Server) NewCodeError(code string, err error) error {
 	return &CodeError{
 		Code: code,
 		Err:  err,

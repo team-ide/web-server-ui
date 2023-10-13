@@ -136,7 +136,9 @@ func bindMapper(server *servers.Server) (err error) {
 	//	return
 	//}
 
-	err = server.RegisterMapperObj("/user", &UserMapper{})
+	err = server.RegisterMapperObj("/user", &UserMapper{
+		server: server,
+	})
 	if err != nil {
 		return
 	}
@@ -145,6 +147,7 @@ func bindMapper(server *servers.Server) (err error) {
 }
 
 type UserMapper struct {
+	server       *servers.Server
 	IndexMapper  string `path:"/index" method:"get"`
 	GetMapper    string `path:"/get/{userId}" method:"get"`
 	InsertMapper string `path:"/insert" method:"post"`
@@ -156,6 +159,8 @@ type UserMapper struct {
 // mapper:/index
 func (this_ *UserMapper) Index(requestContext *servers.HttpRequestContext) (res interface{}, err error) {
 
+	page := this_.server.NewPage()
+	res = this_.server.NewResultPage(page)
 	return
 }
 
